@@ -108,9 +108,6 @@ if __name__ == '__main__':
             plt.legend()
             plt.show()
                  
-
-
-
         #512 256 128 10
     
 
