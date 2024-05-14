@@ -9,8 +9,8 @@ import numpy as np
 n_hidden_1 = 256
 n_hidden_2 = 256
 numEpocas = 100
-batch_size = 64
-learning_rate=0.01
+batch_size = 128
+learning_rate=0.00001
 
 mnist_train = '/home/sc02m01ia/Descargas/code/mnist_train.csv' 
 mnist_test = '/home/sc02m01ia/Descargas/code/mnist_test.csv'
@@ -101,13 +101,22 @@ if __name__ == '__main__':
                     print("Epoca: ", i, " Batch: ", j, " Error test: ", error_test)
                     listError_test.append(error_test)
 
-            plt.plot(listError[1:], label='Error de entrenamiento')
-            plt.plot(listError_test, label='Error de prueba')
+
+
+
+
+            plt.plot(listError[2:], label='Error de entrenamiento')
             plt.xlabel('Epocas')
             plt.ylabel('Error')
             plt.legend()
             plt.show()
-                 
+
+
+            plt.plot(listError_test[2:], label='Error de prueba')
+            plt.xlabel('Epocas')
+            plt.ylabel('Error')
+            plt.legend()
+            plt.show()
         #512 256 128 10
     
 
