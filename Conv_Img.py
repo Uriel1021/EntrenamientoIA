@@ -1,0 +1,56 @@
+import tensorflow.compat.v1 as tf 
+import cv2
+import os
+import numpy as np
+
+tf.disable_v2_behavior()
+
+def convolucion(img,kernel):
+    return tf.nn.conv2d(img,kernel,strides=[1,1,1,1],padding='SAME') 
+    
+
+def images():
+    l=os.listdir("images/")
+    limg=[]
+    for img in l:
+        image=cv2.imread("images/"+img)
+        imgGray=cv2.resize(image, (740, 740))
+        imgGray=cv2.cvtColor(imgGray,cv2.COLOR_BGR2GRAY)
+        imgGray=imgGray/255.0
+        imgGray=imgGray[:,:,np.newaxis]
+        limg.append(imgGray)
+    limg=np.array(limg,dtype='float32')
+    return limg
+
+
+def creaFiltros():
+    f1=[[1/9,1/9,1/9],[1/9,1/9,1/9],[1/9,1/9,1/9]]
+    f2=[[-1,-1,-1],[-1,8,-1],[-1,-1,-1]]
+    f3=[[0,1,0],[1,-4,1],[0,1,0]]
+    f4=[[-1,0,1],[-2,0,2],[-1,0,1]]
+    f=[f1,f2,f3,f4] #4,3,3
+    f=np.array(f,dtype='float32')
+    f=f[:,:,:,np.newaxis]#4,3,3,1
+    f=np.transpose(f,(1,2,3,0)) #3,3,1,4
+    return f
+
+
+if __name__ == '__main__':
+    with tf.device("/gpu:0"):
+        with tf.Graph().as_default():            
+            x = tf.placeholder("float32", [None, 740,740,1]) 
+            y = tf.placeholder("float32", [3,3,1,4]) 
+
+            img=images()
+            kernel=creaFiltros()
+
+            conv=convolucion(x,y)
+            sess=tf.Session()
+            r=sess.run(conv,feed_dict={x:img,y:kernel})
+            #print(r[0])
+            
+            
+            for i,imagen in enumerate(r):
+                for j in range(4):
+                    cv2.imshow("imagen",imagen[:,:,j]);cv2.waitKey(0);cv2.destroyAllWindows()
+            
