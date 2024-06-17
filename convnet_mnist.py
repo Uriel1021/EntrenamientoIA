@@ -1,17 +1,16 @@
-
+import matplotlib.pyplot as plt
 import tensorflow.compat.v1 as tf 
 tf.disable_v2_behavior()
 import datos
+import os
 import numpy as np
 from tqdm import tqdm
+
 # Parameters
-learning_rate = 0.0001
-training_epochs = 100
+learning_rate = 0.00001
+batch_size = 128
+numEpocas = 5
 
-batch_size = 64
-learning_rate=0.001
-
-numEpocas=30
 
 def conv2d(input, weight_shape, bias_shape):
     incoming = weight_shape[0] * weight_shape[1] * weight_shape[2]
@@ -32,19 +31,22 @@ def layer(input, weight_shape, bias_shape):
     return tf.nn.relu(tf.matmul(input, W) + b)
 
 def inference(x):
-    x = tf.reshape(x, shape=[-1, 28, 28, 1])
-    with tf.variable_scope("conv_1"):
-        conv_1 = conv2d(x, [5, 5, 1, 32], [32])
-        pool_1 = max_pool(conv_1)
-    with tf.variable_scope("conv_2"):
-        conv_2 = conv2d(pool_1, [5, 5, 32, 64], [64])
-        pool_2 = max_pool(conv_2)
-    with tf.variable_scope("fc"):
-        pool_2_flat = tf.reshape(pool_2, [-1, 7 * 7 * 64])
-        fc_1 = layer(pool_2_flat, [7*7*64, 1024], [1024])
-    with tf.variable_scope("output"):
-        output = layer(fc_1, [1024, 10], [10])
-    return output
+    with tf.variable_scope("capa1"):
+        out1 = conv2d(x, [5,5,1,32],[32])
+        outmax = max_pool(out1)
+
+    with tf.variable_scope("capa2"):
+        out2 = conv2d(outmax,[5,5,32,64],[64])
+        outmax = max_pool(out2)
+
+    with tf.variable_scope("capa3"):
+        out3 = tf.reshape(outmax, (-1, 7*7*64))
+        out4 = layer(out3, [7*7*64, 1024], [1024])
+    
+    with tf.variable_scope("capa4"):
+        outLayer = layer(out4, [1024, 10], [10])
+    
+    return outLayer
 
 def loss(output, y):
     xentropy = tf.nn.softmax_cross_entropy_with_logits_v2(logits=output, labels=y)    
@@ -53,7 +55,7 @@ def loss(output, y):
 
 def training(cost):
     tf.summary.scalar("cost", cost)
-    optimizer = tf.train.AdamOptimizer(learning_rate=0.001,beta1=0.9,beta2=0.999,epsilon=1e-08,use_locking=False,name="Adam")
+    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
     train_op = optimizer.minimize(cost)
     return train_op
 
@@ -64,42 +66,67 @@ def evaluate(output, y):
 
 if __name__ == '__main__':
     with tf.device("/CPU:0"):
+        x = tf.placeholder("float", [None, 28, 28, 1])
+        y = tf.placeholder("float", [None, 10])
 
-        x = tf.placeholder("float", [None,28,28,1]) #  28*28=784
-        y = tf.placeholder("float", [None, 10]) # 10 clases
-
-
-        output=inference(x)
-        error=loss(output,y)
-        entrena=training(error)
-        evalua=evaluate(output,y)
+        output = inference(x)
+        error = loss(output, y)
+        entrena = training(error)
+        evalua = evaluate(output, y)
 
         saver = tf.train.Saver()
-        sess=tf.Session()
+        sess = tf.Session()
         init_op = tf.global_variables_initializer()
         sess.run(init_op)
 
+        label_train, img_train = datos.get_data("mnist_train")
+        label_test, img_train_test = datos.get_data("mnist_test")
+        
+        nDatos = np.shape(img_train)[0]
+        nBatch = int(nDatos / batch_size)
+        pos = np.arange(nDatos)
+        
+        nDatosTest = np.shape(img_train_test)[0]
+        nBatchTest = int(nDatosTest / batch_size)
 
-        label_train, img_train=datos.get_data("mnist_train")
+        error_train = []
+        error_test = []
 
-        nDatos=np.shape(img_train)[0]
-        nBatch=int(nDatos/batch_size)
-        pos=np.arange(nDatos)
-
-
-        error_train=[]
         for i in tqdm(range(numEpocas)):
             np.random.shuffle(pos)            
-            
-            e=0.0
+            e = 0.0
+            e_test = 0.0
+            for j in range(nBatch):
+                label_batch, img_batch = datos.next_batch(j, pos, label_train, img_train)
+                sess.run(entrena, feed_dict={x: img_batch, y: label_batch})
+                e += sess.run(error, feed_dict={x: img_batch, y: label_batch}) / nBatch
 
-            if e % 5 == 0:
-                for j in range(nBatch):
-                    label_batch,img_batch=datos.next_batch(j,pos,label_train,img_train)
-                    sess.run(entrena,feed_dict={x:img_batch,y:label_batch})
-                    e +=sess.run(error,feed_dict={x:img_batch,y:label_batch})/nBatch
-                    saver.save(sess,".ckpt")
+                label_batch_test, img_batch_test = datos.next_batch_test(j, label_test, img_train_test)
+                sess.run(entrena, feed_dict = {x: img_batch_test, y: label_test})
+                e_test += sess.run(error, feed_dict = {x:img_batch_test, y:label_test})/ nBatchTest
 
             error_train.append(e)
+            print("Epoca: ", i, " error_train : ", e)
+            print("Epoca: ", i, " error_test : ",e)
 
-            print("Epoca: ",i, " error_train : ", e)
+
+
+            # Guarda cada 5 épocas
+            if (i + 1) % 5 == 0:
+                epoca_directorio = f"modelo_epoca_{i + 1}"
+                if not os.path.exists(epoca_directorio):
+                    os.makedirs(epoca_directorio)
+
+                saver.save(sess,os.path.join(epoca_directorio, "modelo.ckpt"))
+    
+    plt.plot(error_train[2:], label='Error de entrenamiento')
+    plt.xlabel('Epocas')
+    plt.ylabel('Error')
+    plt.legend()
+    plt.show()
+
+    plt.plot(error_test[2:], label='Error de prueba')
+    plt.xlabel('Epocas')
+    plt.ylabel('Error')
+    plt.legend()
+    plt.show()

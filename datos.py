@@ -59,8 +59,8 @@ def get_data(namefile):
     label_train=[]
     img_train=[]
     for dato in data:
-        img=np.reshape(dato[1:],(28,28,1))
-        ylabel=np.array(label[dato[0]],dtype="int64")
+        img=np.reshape(dato[1:],(28,28,1)).astype(np.float32)/255.0
+        #img = img/255.0
         label_train.append(label[dato[0]])
         img_vect = np.array(img, dtype = "int64")
         img_train.append(img_vect) 
