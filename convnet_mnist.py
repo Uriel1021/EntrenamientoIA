@@ -7,9 +7,9 @@ import numpy as np
 from tqdm import tqdm
 
 # Parameters
-learning_rate = 0.00001
+learning_rate = 0.0001
 batch_size = 128
-numEpocas = 5
+numEpocas = 50
 
 
 def conv2d(input, weight_shape, bias_shape):
@@ -66,6 +66,7 @@ def evaluate(output, y):
 
 if __name__ == '__main__':
     with tf.device("/CPU:0"):
+
         x = tf.placeholder("float", [None, 28, 28, 1])
         y = tf.placeholder("float", [None, 10])
 
@@ -80,34 +81,39 @@ if __name__ == '__main__':
         sess.run(init_op)
 
         label_train, img_train = datos.get_data("mnist_train")
-        label_test, img_train_test = datos.get_data("mnist_test")
-        
         nDatos = np.shape(img_train)[0]
         nBatch = int(nDatos / batch_size)
         pos = np.arange(nDatos)
-        
+
+        label_test, img_train_test = datos.get_data("mnist_test")
         nDatosTest = np.shape(img_train_test)[0]
         nBatchTest = int(nDatosTest / batch_size)
+        posTest = np.arange(nDatosTest)
+        
 
         error_train = []
         error_test = []
 
         for i in tqdm(range(numEpocas)):
+
             np.random.shuffle(pos)            
             e = 0.0
-            e_test = 0.0
             for j in range(nBatch):
                 label_batch, img_batch = datos.next_batch(j, pos, label_train, img_train)
                 sess.run(entrena, feed_dict={x: img_batch, y: label_batch})
                 e += sess.run(error, feed_dict={x: img_batch, y: label_batch}) / nBatch
-
-                label_batch_test, img_batch_test = datos.next_batch_test(j, label_test, img_train_test)
-                sess.run(entrena, feed_dict = {x: img_batch_test, y: label_test})
-                e_test += sess.run(error, feed_dict = {x:img_batch_test, y:label_test})/ nBatchTest
-
             error_train.append(e)
             print("Epoca: ", i, " error_train : ", e)
-            print("Epoca: ", i, " error_test : ",e)
+
+            np.random.shuffle(posTest)
+            e_test = 0.0
+            for z in range(nBatchTest):
+                #Hacer for nBatchTest
+                label_batch_test, img_batch_test = datos.next_batch_test(z, label_test, img_train_test)
+                sess.run(entrena, feed_dict = {x: img_batch, y: label_batch})
+                e_test += sess.run(error, feed_dict = {x:img_batch, y:label_batch})/ nBatchTest
+            error_test.append(e_test)            
+            print("Epoca: ", i, " error_test : ",e_test)
 
 
 
@@ -116,17 +122,18 @@ if __name__ == '__main__':
                 epoca_directorio = f"modelo_epoca_{i + 1}"
                 if not os.path.exists(epoca_directorio):
                     os.makedirs(epoca_directorio)
-
                 saver.save(sess,os.path.join(epoca_directorio, "modelo.ckpt"))
     
-    plt.plot(error_train[2:], label='Error de entrenamiento')
-    plt.xlabel('Epocas')
-    plt.ylabel('Error')
-    plt.legend()
-    plt.show()
 
+    plt.plot(error_train[2:], label='Error de entrenamiento')
     plt.plot(error_test[2:], label='Error de prueba')
     plt.xlabel('Epocas')
     plt.ylabel('Error')
     plt.legend()
     plt.show()
+
+    
+    #plt.xlabel('Epocas')
+    #plt.ylabel('Error')
+    #plt.legend()
+    #plt.show()
